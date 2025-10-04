@@ -1,0 +1,48 @@
+{
+    "SoccerAgent": {
+        "checkpoints": [
+            {
+                "steps": 499994,
+                "file_path": "results\\run3\\SoccerAgent\\SoccerAgent-499994.onnx",
+                "reward": -1.498840409020583,
+                "creation_time": 1759606845.6811366,
+                "auxillary_file_paths": [
+                    "results\\run3\\SoccerAgent\\SoccerAgent-499994.pt"
+                ]
+            },
+            {
+                "steps": 999994,
+                "file_path": "results\\run3\\SoccerAgent\\SoccerAgent-999994.onnx",
+                "reward": -1.1501209080219268,
+                "creation_time": 1759608222.5048501,
+                "auxillary_file_paths": [
+                    "results\\run3\\SoccerAgent\\SoccerAgent-999994.pt"
+                ]
+            },
+            {
+                "steps": 1000122,
+                "file_path": "results\\run3\\SoccerAgent\\SoccerAgent-1000122.onnx",
+                "reward": -1.1501209080219268,
+                "creation_time": 1759608222.6034226,
+                "auxillary_file_paths": [
+                    "results\\run3\\SoccerAgent\\SoccerAgent-1000122.pt"
+                ]
+            }
+        ],
+        "elo": 922.7915070060845,
+        "final_checkpoint": {
+            "steps": 1000122,
+            "file_path": "results\\run3\\SoccerAgent.onnx",
+            "reward": -1.1501209080219268,
+            "creation_time": 1759608222.6034226,
+            "auxillary_file_paths": [
+                "results\\run3\\SoccerAgent\\SoccerAgent-1000122.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.2.0.dev0",
+        "torch_version": "2.2.2+cu121"
+    }
+}

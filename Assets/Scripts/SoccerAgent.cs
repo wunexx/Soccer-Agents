@@ -3,6 +3,7 @@ using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 using System.Collections;
+using TMPro;
 
 public class SoccerAgent : Agent
 {
@@ -13,21 +14,25 @@ public class SoccerAgent : Agent
     [Header("Kick")]
     [SerializeField] float kickForce;
 
+    [Header("Field")]
+    [SerializeField] float fieldWidth = 20f;
+    [SerializeField] float fieldHeight = 10f;
+
     [Header("Other")]
     [SerializeField] Team team;
     [SerializeField] Transform opponent;
     [SerializeField] Transform opponentsGoal;
     [SerializeField] KickTrigger kickTrigger;
+    [SerializeField] GameObject statsPrefab;
 
-    [Header("Field")]
-    [SerializeField] float fieldWidth = 20f;
-    [SerializeField] float fieldHeight = 10f;
+    TextMeshProUGUI labelText;
+    TextMeshProUGUI rewardText;
 
     Rigidbody2D ball;
-
     FieldManager fieldManager;
-
     [HideInInspector] public Rigidbody2D rb;
+
+    float maxReward;
 
     float previousBallDistance;
 
@@ -41,6 +46,10 @@ public class SoccerAgent : Agent
 
         fieldManager = transform.parent.GetComponent<FieldManager>();
         if (!fieldManager) Debug.LogWarning("No Field Manager Found!!!");
+
+        GameObject statsObj = Instantiate(statsPrefab, Vector2.zero, Quaternion.identity, fieldManager.statsParent);
+        labelText = statsObj.transform.Find("LabelText").GetComponent<TextMeshProUGUI>();
+        rewardText = statsObj.transform.Find("RewardText").GetComponent<TextMeshProUGUI>();
     }
     public override void OnEpisodeBegin()
     {
@@ -106,6 +115,8 @@ public class SoccerAgent : Agent
         AddReward(deltaDistance * 0.01f);
 
         AddReward(-0.001f);
+
+        UpdateStats();
     }
 
     void MoveAgent(ActionSegment<int> actions)
@@ -135,19 +146,33 @@ public class SoccerAgent : Agent
 
     void TryKickBall()
     {
-        Debug.Log("Trying to kick the ball....");
+        //Debug.Log("Trying to kick the ball....");
         if (kickTrigger.canKick)
         {
             Vector2 direction = ball.transform.localPosition - transform.localPosition;
             ball.AddForce(direction.normalized * kickForce, ForceMode2D.Impulse);
-            Debug.Log($"Success! Force: {direction.normalized * kickForce}");
+            //Debug.Log($"Success! Force: {direction.normalized * kickForce}");
         }
+    }
+
+    void UpdateStats()
+    {
+        float reward = GetCumulativeReward();
+
+        if (reward > maxReward) maxReward = reward;
+
+        Color textColor = team == Team.Red ? Color.red : Color.green;
+
+        labelText.text = $"{gameObject.name} ({team} Team)";
+        labelText.color = textColor;
+
+        rewardText.text = $"Reward: {reward} | Max Reward: {maxReward} | Current Step: {StepCount}";
     }
 
     public void OnGoalScored(bool isWinner)
     {
         AddReward(isWinner ? 1f : -1f);
-        Debug.Log($"Scored a goal! Is winner: {isWinner}! Name: {gameObject.name}");
+        //Debug.Log($"Scored a goal! Is winner: {isWinner}! Name: {gameObject.name}");
 
         StartCoroutine(EndEpisodeNextFrame());
     }

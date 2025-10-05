@@ -18,10 +18,14 @@ public class SoccerAgent : Agent
     [SerializeField] float fieldWidth = 20f;
     [SerializeField] float fieldHeight = 10f;
 
-    [Header("Other")]
+    [Header("Team")]
     [SerializeField] Team team;
+
+    [Header("Opponent")]
     [SerializeField] Transform opponent;
     [SerializeField] Transform opponentsGoal;
+
+    [Header("Other References")]
     [SerializeField] KickTrigger kickTrigger;
     [SerializeField] GameObject statsPrefab;
 
@@ -112,9 +116,20 @@ public class SoccerAgent : Agent
         float currentDistance = Vector2.Distance(ball.transform.localPosition, opponentsGoal.localPosition);
         float deltaDistance = previousBallDistance - currentDistance;
         previousBallDistance = currentDistance;
-        AddReward(deltaDistance * 0.01f);
+        AddReward(deltaDistance * 0.05f);
 
-        AddReward(-0.001f);
+        if (rb.linearVelocity.magnitude < 0.05f && ball.linearVelocity.magnitude < 0.05f)
+        {
+            AddReward(-0.02f);
+        }
+
+        AddReward(-0.01f);
+
+        if (StepCount >= MaxStep)
+        {
+            AddReward(-2f);
+            EndEpisode();
+        }
 
         UpdateStats();
     }
@@ -151,6 +166,7 @@ public class SoccerAgent : Agent
         {
             Vector2 direction = ball.transform.localPosition - transform.localPosition;
             ball.AddForce(direction.normalized * kickForce, ForceMode2D.Impulse);
+            AddReward(1f);
             //Debug.Log($"Success! Force: {direction.normalized * kickForce}");
         }
     }
@@ -171,10 +187,12 @@ public class SoccerAgent : Agent
 
     public void OnGoalScored(bool isWinner)
     {
-        AddReward(isWinner ? 1f : -1f);
+        AddReward(isWinner ? 5f : -5f);
         //Debug.Log($"Scored a goal! Is winner: {isWinner}! Name: {gameObject.name}");
+        UpdateStats();
+        EndEpisode();
 
-        StartCoroutine(EndEpisodeNextFrame());
+        //StartCoroutine(EndEpisodeNextFrame());
     }
 
     private IEnumerator EndEpisodeNextFrame()

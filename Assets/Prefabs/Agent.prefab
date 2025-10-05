@@ -448,8 +448,8 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 2000
-  moveSpeed: 5
-  rotationSpeed: 180
+  moveSpeed: 12
+  rotationSpeed: 250
   kickForce: 10
   fieldWidth: 42
   fieldHeight: 24

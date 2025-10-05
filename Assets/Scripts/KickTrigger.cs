@@ -15,7 +15,7 @@ public class KickTrigger : MonoBehaviour
         if (collision.gameObject.CompareTag("Ball"))
         {
             canKick = true;
-            spriteRenderer.color = new Color(0, 255, 0, 0.3f);
+            spriteRenderer.color = new Color(0, 255, 0, 0.1f);
         }
     }
     private void OnTriggerExit2D(Collider2D collision)
@@ -23,7 +23,7 @@ public class KickTrigger : MonoBehaviour
         if (collision.gameObject.CompareTag("Ball"))
         {
             canKick = false;
-            spriteRenderer.color = new Color(255, 0, 0, 0.3f);
+            spriteRenderer.color = new Color(255, 0, 0, 0.1f);
         }
     }
 }

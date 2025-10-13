@@ -2,24 +2,22 @@ using UnityEngine;
 
 public class Ball : MonoBehaviour
 {
-    FieldManager fieldManager;
+    EnvironmentManager environmentManager;
 
     private void Start()
     {
-        fieldManager = transform.parent.GetComponent<FieldManager>();
-
-        if (!fieldManager) Debug.LogWarning("No Field Manager Found!!!");
+        environmentManager = GetComponentInParent<EnvironmentManager>();
     }
 
-    private void OnTriggerEnter2D(Collider2D collision)
+    private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.CompareTag("Goal 1"))
+        if (collision.gameObject.CompareTag("RedGoal"))
         {
-            fieldManager.OnGoalScored(Team.Green);
+            environmentManager.OnGoalScored(Team.Green);
         }
-        else if (collision.CompareTag("Goal 2"))
+        else if (collision.gameObject.CompareTag("GreenGoal"))
         {
-            fieldManager.OnGoalScored(Team.Red);
+            environmentManager.OnGoalScored(Team.Red);
         }
     }
 }

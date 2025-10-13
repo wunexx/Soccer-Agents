@@ -1,0 +1,39 @@
+{
+    "SoccerAgent": {
+        "checkpoints": [
+            {
+                "steps": 499883,
+                "file_path": "results\\3v3run2\\SoccerAgent\\SoccerAgent-499883.onnx",
+                "reward": null,
+                "creation_time": 1760354539.1797347,
+                "auxillary_file_paths": [
+                    "results\\3v3run2\\SoccerAgent\\SoccerAgent-499883.pt"
+                ]
+            },
+            {
+                "steps": 500139,
+                "file_path": "results\\3v3run2\\SoccerAgent\\SoccerAgent-500139.onnx",
+                "reward": null,
+                "creation_time": 1760354539.2981365,
+                "auxillary_file_paths": [
+                    "results\\3v3run2\\SoccerAgent\\SoccerAgent-500139.pt"
+                ]
+            }
+        ],
+        "elo": 1076.661716032453,
+        "final_checkpoint": {
+            "steps": 500139,
+            "file_path": "results\\3v3run2\\SoccerAgent.onnx",
+            "reward": null,
+            "creation_time": 1760354539.2981365,
+            "auxillary_file_paths": [
+                "results\\3v3run2\\SoccerAgent\\SoccerAgent-500139.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.2.0.dev0",
+        "torch_version": "2.2.2+cu121"
+    }
+}

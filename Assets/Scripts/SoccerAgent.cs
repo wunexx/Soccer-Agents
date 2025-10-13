@@ -1,203 +1,283 @@
+using TMPro;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Policies;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
-using System.Collections;
-using TMPro;
 
+public enum Team
+{
+    Red = 0, Green = 1
+}
+
+
+[RequireComponent(typeof(Rigidbody2D))]
 public class SoccerAgent : Agent
 {
-    [Header("Movement")]
-    [SerializeField] float moveSpeed = 5f;
-    [SerializeField] float rotationSpeed = 180f;
+    [Header("-------Movement-------")]
+    [SerializeField] float moveSpeed = 10f;
+    [SerializeField] float rotationSpeed = 200f;
 
-    [Header("Kick")]
-    [SerializeField] float kickForce;
+    [Header("-------Kick-------")]
+    [SerializeField] float kickForce = 10f;
+    [SerializeField] float kickCooldown = 1f;
 
-    [Header("Field")]
-    [SerializeField] float fieldWidth = 20f;
-    [SerializeField] float fieldHeight = 10f;
-
-    [Header("Team")]
+    [Header("-------Team-------")]
     [SerializeField] Team team;
 
-    [Header("Opponent")]
-    [SerializeField] Transform opponent;
-    [SerializeField] Transform opponentsGoal;
+    [Header("-------Team Data-------")]
+    [SerializeField] string[] teamLayers;
+    [SerializeField] Sprite[] teamSprites;
 
-    [Header("Other References")]
-    [SerializeField] KickTrigger kickTrigger;
+    [Header("-------Rewards-------")]
+
+    [Header("Multipliers")]
+    [SerializeField] float ballDistanceMultiplierReward = 0.01f;
+    [SerializeField] float movingTowardsBallMultiplierReward = 0.01f;
+
+    [Header("Kick")]
+    [SerializeField] float kickReward = 5f;
+    [SerializeField] float falseKickReward = -1f; //kick with no ball
+
+    [Header("Time")]
+    [SerializeField] float idleReward = -0.01f;
+    [SerializeField] float timeoutReward = -10f;
+
+    [Header("Win/Lose")]
+    [SerializeField] float loseReward = -5f;
+    [SerializeField] float winReward = 10f;
+
+    [Header("-------References-------")]
     [SerializeField] GameObject statsPrefab;
 
-    TextMeshProUGUI labelText;
-    TextMeshProUGUI rewardText;
+    [SerializeField] RayPerceptionSensorComponent2D rayPerceptionSensorComponent2D;
+    [SerializeField] BehaviorParameters behaviorParameters;
+    [SerializeField] SpriteRenderer spriteRenderer;
 
-    Rigidbody2D ball;
-    FieldManager fieldManager;
-    [HideInInspector] public Rigidbody2D rb;
+    [SerializeField] GameObject kickTriggerObject;
 
-    float maxReward;
+    Transform enemyGoal;
 
-    float previousBallDistance;
+    TextMeshProUGUI nameText;
+    TextMeshProUGUI statsText;
+
+    EnvironmentManager environmentManager;
+    Rigidbody2D rb;
+    KickTrigger kickTrigger;
+    GameObject[] enemies;
+
+    float previousBallToGoalDistance;
+
+    float kickTimer = 0;
+
+    Vector2 initialPos;
+    float initalRotation;
+
+    float episodeMaxReward = 0;
+    float allTimeMaxReward = 0;
+
+    int episodeCounter;
 
     public override void Initialize()
     {
+        environmentManager = GetComponentInParent<EnvironmentManager>();
         rb = GetComponent<Rigidbody2D>();
-        if (!rb) Debug.LogWarning("No RigidBody2D Found!!!");
+        kickTrigger = transform.GetComponentInChildren<KickTrigger>();
+        enemyGoal = environmentManager.GetGoal(team);
 
-        ball = transform.parent.Find("Ball").GetComponent<Rigidbody2D>();
-        if (!ball) Debug.LogWarning("No Ball Found!!!");
+        initialPos = transform.localPosition;
+        initalRotation = rb.rotation;
 
-        fieldManager = transform.parent.GetComponent<FieldManager>();
-        if (!fieldManager) Debug.LogWarning("No Field Manager Found!!!");
+        enemies = environmentManager.GetEnemies(team);
 
-        GameObject statsObj = Instantiate(statsPrefab, Vector2.zero, Quaternion.identity, fieldManager.statsParent);
-        labelText = statsObj.transform.Find("LabelText").GetComponent<TextMeshProUGUI>();
-        rewardText = statsObj.transform.Find("RewardText").GetComponent<TextMeshProUGUI>();
+        int observationVectorSize = (enemies.Length * 6) + 12;
+        behaviorParameters.BrainParameters.VectorObservationSize = observationVectorSize;
+
+        GameObject statsObj = Instantiate(statsPrefab, Vector2.zero, Quaternion.identity, environmentManager.GetStatsParent());
+
+        nameText = statsObj.transform.Find("NameText").GetComponent<TextMeshProUGUI>();
+        statsText = statsObj.transform.Find("StatsText").GetComponent<TextMeshProUGUI>();
     }
     public override void OnEpisodeBegin()
     {
-        fieldManager.ResetField();
+        episodeCounter++;
+        environmentManager.UpdateUI(episodeCounter);
+        episodeMaxReward = 0;
+        ResetKickCooldown();
 
+        environmentManager.ResetBall();
+
+        transform.localPosition = initialPos;
+        rb.MoveRotation(initalRotation);
         rb.linearVelocity = Vector2.zero;
-        rb.angularVelocity = 0f;
-        rb.rotation = 0f;
+        rb.angularVelocity = 0;
 
-        float posOffset = team == Team.Red ? -10 : 10;
-        transform.localPosition = new Vector2(posOffset, 0f);
-
-        Vector2 toCenter = (Vector2)Vector2.zero - (Vector2)transform.localPosition;
-        transform.up = toCenter.normalized;
-
-
-        previousBallDistance = Vector2.Distance(ball.position, opponentsGoal.position);
+        previousBallToGoalDistance = Vector2.Distance(environmentManager.GetBallRB().position, enemyGoal.position);
     }
     public override void CollectObservations(VectorSensor sensor)
     {
-        sensor.AddObservation(transform.localPosition.x / (fieldWidth / 2f));
-        sensor.AddObservation(transform.localPosition.y / (fieldHeight / 2f));
+        float invWidth = 1f / Mathf.Max(0.0001f, environmentManager.fieldHalfWidth);
+        float invHeight = 1f / Mathf.Max(0.0001f, environmentManager.fieldHalfHeight);
+        float invAgentSpeed = 1f / Mathf.Max(0.0001f, moveSpeed);
+        float invBallSpeed = 1f / Mathf.Max(0.0001f, kickForce);
 
-        sensor.AddObservation(ball.transform.localPosition.x / (fieldWidth / 2f));
-        sensor.AddObservation(ball.transform.localPosition.y / (fieldHeight / 2f));
 
-        sensor.AddObservation(opponent.localPosition.x / (fieldWidth / 2f));
-        sensor.AddObservation(opponent.localPosition.y / (fieldHeight / 2f));
+        sensor.AddObservation(new Vector2(
+            rb.linearVelocity.x * invAgentSpeed,
+            rb.linearVelocity.y * invAgentSpeed));
 
-        sensor.AddObservation(transform.up);
+        float normalizedRot = Mathf.Sin(rb.rotation * Mathf.Deg2Rad);
+        sensor.AddObservation(normalizedRot);
 
-        sensor.AddObservation(ball.linearVelocity / kickForce);
-        sensor.AddObservation(rb.linearVelocity / moveSpeed);
+        float normalizedKickTimer = Mathf.Clamp01(kickTimer / Mathf.Max(0.0001f, kickCooldown));
+        sensor.AddObservation(normalizedKickTimer);
 
-        Rigidbody2D oppRb = opponent.GetComponent<Rigidbody2D>();
-        sensor.AddObservation(oppRb ? oppRb.linearVelocity / moveSpeed : Vector2.zero);
+        //sensor.AddObservation(kickCooldown);
+
+        Vector2 ballRelPos = environmentManager.GetBallRB().position - (Vector2)transform.position;
+        Vector2 ballRelPosNorm = new Vector2(ballRelPos.x * invWidth, ballRelPos.y * invHeight);
+        sensor.AddObservation(ballRelPosNorm); // 2
+
+        Vector2 ballVel = environmentManager.GetBallRB().linearVelocity;
+        Vector2 ballVelNorm = new Vector2(ballVel.x * invBallSpeed, ballVel.y * invBallSpeed);
+        sensor.AddObservation(ballVelNorm); // 2
+
+        Vector2 goalRel = (Vector2)enemyGoal.position - (Vector2)transform.position;
+        Vector2 goalRelNorm = new Vector2(goalRel.x * invWidth, goalRel.y * invHeight);
+        sensor.AddObservation(goalRelNorm); // 2
+
+        float angleToGoal = Vector2.SignedAngle(transform.up, goalRel) / 180f;
+        sensor.AddObservation(angleToGoal);
+
+        sensor.AddObservation(kickTrigger.HasBall());
+
+        foreach (var enemy in enemies)
+        {
+            Rigidbody2D enemyRb = enemy.GetComponent<Rigidbody2D>();
+            SoccerAgent enemySoccerAgent = enemy.GetComponent<SoccerAgent>();
+
+            sensor.AddObservation(new Vector2(
+               enemyRb.linearVelocity.x * invAgentSpeed,
+               enemyRb.linearVelocity.y * invAgentSpeed));
+
+            float normalizedEnemyRot = Mathf.Sin(enemyRb.rotation * Mathf.Deg2Rad);
+            sensor.AddObservation(normalizedEnemyRot);
+
+            Vector2 enemyRel = (Vector2)enemyRb.position - (Vector2)transform.position;
+            Vector2 enemyRelNorm = new Vector2(enemyRel.x * invWidth, enemyRel.y * invHeight);
+            sensor.AddObservation(enemyRelNorm); // 2
+
+            float normalizedEnemyKickTimer = Mathf.Clamp01(enemySoccerAgent.kickTimer / Mathf.Max(0.0001f, enemySoccerAgent.kickCooldown));
+            sensor.AddObservation(normalizedEnemyKickTimer);
+
+            //sensor.AddObservation(enemySoccerAgent.kickCooldown);
+        }
     }
     public override void Heuristic(in ActionBuffers actionsOut)
     {
-        var discreteActionsOut = actionsOut.DiscreteActions;
-        discreteActionsOut[0] = 0;
-        discreteActionsOut[1] = 0;
+        var continuousActions = actionsOut.ContinuousActions;
+        var discreteActions = actionsOut.DiscreteActions;
 
-        Vector2 moveInput = PlayerController.Instance.GetMovementInput();
+        var moveInput = PlayerController.Instance.GetMovementInput();
 
-        if (moveInput.y > 0)
-            discreteActionsOut[0] = 1;
-        else if (moveInput.x < 0)
-            discreteActionsOut[0] = 2;
-        else if (moveInput.x > 0)
-            discreteActionsOut[0] = 3;
+        bool kickInput = PlayerController.Instance.IsKickPressed();
 
-        if (PlayerController.Instance.IsKickPressed())
-            discreteActionsOut[1] = 1;
+        discreteActions[0] = 0;
+
+        continuousActions[0] = moveInput.y;
+        continuousActions[1] = -moveInput.x;
+
+        if (kickInput)
+            discreteActions[0] = 1;
     }
     public override void OnActionReceived(ActionBuffers actions)
     {
-        MoveAgent(actions.DiscreteActions);
+        kickTimer += Time.fixedDeltaTime;
+        AddReward(idleReward);
 
-        float currentDistance = Vector2.Distance(ball.transform.localPosition, opponentsGoal.localPosition);
-        float deltaDistance = previousBallDistance - currentDistance;
-        previousBallDistance = currentDistance;
-        AddReward(deltaDistance * 0.05f);
+        float moveInput = actions.ContinuousActions[0];
+        float turnInput = actions.ContinuousActions[1];
 
-        if (rb.linearVelocity.magnitude < 0.05f && ball.linearVelocity.magnitude < 0.05f)
+        MoveAgent(moveInput, turnInput);
+
+        int kick = actions.DiscreteActions[0];
+        if (kick == 1)
         {
-            AddReward(-0.02f);
+            bool kicked = kickTrigger.TryKick();
+
+            AddReward(kicked ? kickReward : falseKickReward);
         }
 
-        AddReward(-0.01f);
+        float distance = Vector2.Distance(environmentManager.GetBallRB().position, enemyGoal.position);
+        float distanceDelta = previousBallToGoalDistance - distance;
+        AddReward(ballDistanceMultiplierReward * distanceDelta);
+        previousBallToGoalDistance = distance;
+
+        Vector2 ballDir = (environmentManager.GetBallRB().position - (Vector2)transform.position).normalized;
+        float forwardDot = Vector2.Dot(transform.up, ballDir);
+        AddReward(movingTowardsBallMultiplierReward * forwardDot);
 
         if (StepCount >= MaxStep)
         {
-            AddReward(-2f);
+            AddReward(timeoutReward);
             EndEpisode();
         }
 
-        UpdateStats();
+        UpdateUI();
     }
 
-    void MoveAgent(ActionSegment<int> actions)
+    public bool CanKick() { return kickTimer >= kickCooldown; }
+
+    public void ResetKickCooldown() => kickTimer = 0;
+
+    void MoveAgent(float moveInput, float turnInput)
     {
-        var act = actions[0];
-
-        float rotation;
-        switch(act)
-        {
-            case 1:
-                rb.MovePosition(rb.position + (Vector2)transform.up * moveSpeed * Time.deltaTime);
-                break;
-            case 2:
-                rotation = rb.rotation + rotationSpeed * Time.deltaTime;
-                rb.MoveRotation(rotation);
-                break;
-            case 3:
-                rotation = rb.rotation - rotationSpeed * Time.deltaTime;
-                rb.MoveRotation(rotation);
-                break;
-        }
-
-        var kickAct = actions[1];
-        if (kickAct == 1)
-            TryKickBall();
+        rb.linearVelocity = transform.up * moveInput * moveSpeed;
+        rb.MoveRotation(rb.rotation + turnInput * rotationSpeed * Time.fixedDeltaTime);
     }
+    public float GetKickForce() { return kickForce; }
+    public void OnWin() => AddReward(winReward);
+    public void OnLose() => AddReward(loseReward);
 
-    void TryKickBall()
-    {
-        //Debug.Log("Trying to kick the ball....");
-        if (kickTrigger.canKick)
-        {
-            Vector2 direction = ball.transform.localPosition - transform.localPosition;
-            ball.AddForce(direction.normalized * kickForce, ForceMode2D.Impulse);
-            AddReward(1f);
-            //Debug.Log($"Success! Force: {direction.normalized * kickForce}");
-        }
-    }
-
-    void UpdateStats()
+    void UpdateUI()
     {
         float reward = GetCumulativeReward();
 
-        if (reward > maxReward) maxReward = reward;
+        if (reward > allTimeMaxReward) allTimeMaxReward = reward;
+        if (reward > episodeMaxReward) episodeMaxReward = reward;
 
-        Color textColor = team == Team.Red ? Color.red : Color.green;
+        Color textColor = (int)team == 0 ? Color.red : Color.green;
 
-        labelText.text = $"{gameObject.name} ({team} Team)";
-        labelText.color = textColor;
+        nameText.color = textColor;
+        nameText.text = $"{gameObject.name} ({team} Team)";
 
-        rewardText.text = $"Reward: {reward} | Max Reward: {maxReward} | Current Step: {StepCount}";
+        statsText.text = $"Reward: {reward} \nEp. Max Reward: {episodeMaxReward} \nAll Time Max Reward: {allTimeMaxReward} \nStep: {StepCount}";
     }
 
-    public void OnGoalScored(bool isWinner)
+    private void OnValidate()
     {
-        AddReward(isWinner ? 5f : -5f);
-        //Debug.Log($"Scored a goal! Is winner: {isWinner}! Name: {gameObject.name}");
-        UpdateStats();
-        EndEpisode();
-
-        //StartCoroutine(EndEpisodeNextFrame());
+        ApplyTeamSettings(team);
     }
 
-    private IEnumerator EndEpisodeNextFrame()
+    void ApplyTeamSettings(Team team)
     {
-        yield return null;
-        EndEpisode();
+        if (!rayPerceptionSensorComponent2D || !spriteRenderer || !behaviorParameters) return;
+
+        behaviorParameters.TeamId = (int)team;
+
+        if (teamSprites != null && (int)team < teamSprites.Length)
+            spriteRenderer.sprite = teamSprites[(int)team];
+
+        if (teamLayers != null && (int)team < teamLayers.Length)
+        {
+            int excludeLayer = LayerMask.NameToLayer(teamLayers[(int)team]);
+
+            gameObject.layer = excludeLayer;
+            kickTriggerObject.layer = excludeLayer;
+
+            int newMask = Physics2D.AllLayers & ~(1 << excludeLayer);
+
+            rayPerceptionSensorComponent2D.RayLayerMask = newMask;
+        }
     }
 }

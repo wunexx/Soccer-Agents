@@ -28,6 +28,7 @@ public class SoccerAgent : Agent
     [Header("-------Team Data-------")]
     [SerializeField] string[] teamLayers;
     [SerializeField] Sprite[] teamSprites;
+    [SerializeField] Sprite[] teamCircleSprites;
 
     [Header("-------Rewards-------")]
 
@@ -52,8 +53,10 @@ public class SoccerAgent : Agent
 
     [SerializeField] RayPerceptionSensorComponent2D rayPerceptionSensorComponent2D;
     [SerializeField] BehaviorParameters behaviorParameters;
-    [SerializeField] SpriteRenderer spriteRenderer;
 
+    [SerializeField] SpriteRenderer spriteRenderer;
+    [SerializeField] SpriteRenderer circleSpriteRenderer;
+ 
     [SerializeField] GameObject kickTriggerObject;
 
     Transform enemyGoal;
@@ -253,12 +256,12 @@ public class SoccerAgent : Agent
 
         statsText.text = $"Reward: {reward} \nEp. Max Reward: {episodeMaxReward} \nAll Time Max Reward: {allTimeMaxReward} \nStep: {StepCount}";
     }
-
+#if UNITY_EDITOR
     private void OnValidate()
     {
         ApplyTeamSettings(team);
     }
-
+#endif
     void ApplyTeamSettings(Team team)
     {
         if (!rayPerceptionSensorComponent2D || !spriteRenderer || !behaviorParameters) return;
@@ -267,6 +270,9 @@ public class SoccerAgent : Agent
 
         if (teamSprites != null && (int)team < teamSprites.Length)
             spriteRenderer.sprite = teamSprites[(int)team];
+
+        if (teamCircleSprites != null && (int)team < teamCircleSprites.Length)
+            circleSpriteRenderer.sprite = teamCircleSprites[(int)team];
 
         if (teamLayers != null && (int)team < teamLayers.Length)
         {

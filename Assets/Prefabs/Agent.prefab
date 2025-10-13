@@ -41,7 +41,7 @@ SpriteRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5510210710064223885}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
@@ -369,6 +369,9 @@ MonoBehaviour:
   teamSprites:
   - {fileID: -6982208996699937035, guid: 26fa254d46570b241a4a14141d2c6f9c, type: 3}
   - {fileID: -2116109116071386998, guid: 26fa254d46570b241a4a14141d2c6f9c, type: 3}
+  teamCircleSprites:
+  - {fileID: -5300463406310922843, guid: 26fa254d46570b241a4a14141d2c6f9c, type: 3}
+  - {fileID: -6876001580327813709, guid: 26fa254d46570b241a4a14141d2c6f9c, type: 3}
   ballDistanceMultiplierReward: 0.01
   movingTowardsBallMultiplierReward: 0.01
   kickReward: 10
@@ -381,6 +384,7 @@ MonoBehaviour:
   rayPerceptionSensorComponent2D: {fileID: 3806707922417417069}
   behaviorParameters: {fileID: 7660408019248105064}
   spriteRenderer: {fileID: 6663185434856603682}
+  circleSpriteRenderer: {fileID: 8999505992597300716}
   kickTriggerObject: {fileID: 5510210710064223885}
 --- !u!114 &3630709864934681152
 MonoBehaviour:
@@ -504,7 +508,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 2
-  m_Sprite: {fileID: -6876001580327813709, guid: 26fa254d46570b241a4a14141d2c6f9c, type: 3}
+  m_Sprite: {fileID: -5300463406310922843, guid: 26fa254d46570b241a4a14141d2c6f9c, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
